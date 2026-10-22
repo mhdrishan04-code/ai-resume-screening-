@@ -23,10 +23,20 @@ SKILL_LIBRARY = [
 ]
 
 def extract_pdf(data: bytes) -> str:
+    """Extract embedded PDF text, using OCR for scanned/image-only pages."""
     text = []
     with fitz.open(stream=data, filetype="pdf") as doc:
         for page in doc:
-            text.append(page.get_text())
+            page_text = page.get_text().strip()
+            if len(page_text) < 20:
+                # Scanned PDFs often contain images rather than a searchable text layer.
+                try:
+                    ocr_page = page.get_textpage_ocr(language="eng", dpi=200, full=True)
+                    page_text = page.get_text(textpage=ocr_page).strip()
+                except Exception:
+                    # Keep the app usable even if OCR language data is unavailable.
+                    pass
+            text.append(page_text)
     return "\n".join(text).strip()
 
 def extract_docx(data: bytes) -> str:
